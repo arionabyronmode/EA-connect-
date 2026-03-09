@@ -1,0 +1,41 @@
+name: Auto-RDP with MetaTrader
+
+# Trigger manually or every 5 hours
+on:
+  workflow_dispatch:        # Manual trigger
+  schedule:
+    - cron: '0 */5 * * *'  # Every 5 hours
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Display start message
+      run: echo "Starting Windows RDP setup..."
+
+    - name: Install Chocolatey
+      shell: powershell
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+    - name: Install MetaTrader 4
+      shell: powershell
+      run: |
+        choco install metatrader4 --yes --ignore-checksums
+
+    - name: Start RDP Service
+      shell: powershell
+      run: |
+        Set-Service -Name TermService -StartupType Automatic
+        Start-Service -Name TermService
+
+    - name: Keep Session Alive
+      shell: powershell
+      run: |
+        while ($true) 
+          Write-Host "RDP session alive..."
+          Start-Sleep -Seconds 60
+        

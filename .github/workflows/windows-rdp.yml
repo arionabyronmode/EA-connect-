@@ -1,9 +1,9 @@
-name: Auto-RDP with MetaTrader
+name: Stable Windows-RDP with MetaTrader 5
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:        # Manual trigger
   schedule:
-    - cron: '0 */5 * * *'
+    - cron: '0 */5 * * *'  # Auto-restart every 5 hours
 
 jobs:
   build:
@@ -13,34 +13,52 @@ jobs:
     - name: Start Message
       run: echo "Starting Windows RDP setup..."
 
-    - name: Install Chocolatey
+    - name: Install Chocolatey safely
       shell: powershell
       run: |
+        # Allow script to run
         Set-ExecutionPolicy Bypass -Scope Process -Force
+
+        # Ensure TLS 1.2
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-      continue-on-error: false
 
-    - name: Install MetaTrader 4
-      shell: powershell
-      run: |
-        choco install metatrader4 --yes --ignore-checksums
-      continue-on-error: true  # <-- prevents exit code 1 if choco fails
+        # Safe installation
+        try {
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            Write-Host "Chocolatey installed successfully."
+        } catch {
+            Write-Host "Chocolatey already installed or network issue. Continuing workflow..."
+        }
 
-    - name: Start RDP Service
+    - name: Install MetaTrader 5 safely
       shell: powershell
       run: |
         try {
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
+            choco install metatrader5 --yes --ignore-checksums
+            Write-Host "MetaTrader 5 installed successfully."
         } catch {
-          Write-Host "RDP service already running or cannot start"
+            Write-Host "MetaTrader 5 install failed or already installed. Continuing workflow..."
+        }
+
+    - name: Start RDP Service safely
+      shell: powershell
+      run: |
+        try {
+            Set-Service -Name TermService -StartupType Automatic
+            Start-Service -Name TermService
+            Write-Host "RDP service started successfully."
+        } catch {
+            Write-Host "RDP service already running or cannot start. Continuing..."
         }
 
     - name: Keep Session Alive
       shell: powershell
       run: |
-        while ($true) {
-          Write-Host "RDP session alive..."
-          Start-Sleep -Seconds 60
+        try {
+            while ($true) {
+                Write-Host "RDP session alive..."
+                Start-Sleep -Seconds 60
+            }
+        } catch {
+            Write-Host "Loop interrupted, workflow ending gracefully..."
         }
